@@ -1190,6 +1190,7 @@ $(document).ready(() => {
             e.stopPropagation();
         } else {
             reenableFieldsForSubmission(); // only enabled inputs will appear in the post data
+            tinymce.triggerSave(); // flush contents of rich text editors into the hidden input fields
 
             // disable button to prevent user from clicking submission button again
             const $submissionButton = $('#response_submit_button');
