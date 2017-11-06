@@ -198,7 +198,7 @@ public class FeedbackSubmitPage extends AppPage {
     public void clickSubmitButton() {
         WebElement submitButton = browser.driver.findElement(By.id("response_submit_button"));
         click(submitButton);
-        waitForPageToLoad();
+        waitForAjaxLoaderGifToDisappear();
     }
 
     public void verifyOtherOptionTextUnclickable(int qnNumber, int responseNumber) {

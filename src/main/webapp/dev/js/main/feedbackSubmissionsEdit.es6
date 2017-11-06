@@ -35,6 +35,7 @@ import {
 import {
     addLoadingIndicator,
     disallowNonNumericEntries,
+    removeLoadingIndicator,
 } from '../common/ui.es6';
 
 const FEEDBACK_RESPONSE_RECIPIENT = 'responserecipient';
@@ -52,6 +53,8 @@ const SESSION_CLOSING_MESSAGE = 'Warning: you have less than 15 minutes before t
 const RESPONSES_SUCCESSFULLY_SUBMITTED = '<p>All your responses have been successfully recorded! '
         + 'You may now leave this page.</p>'
         + '<p>Note that you can change your responses and submit them again any time before the session closes.</p>';
+const SUBMISSION_FAILURE_HEADER = 'Could not submit feedback!';
+const SUBMISSION_FAILURE_MESSAGE = 'Please try again. If the problem persists, backup your responses and reload this page.';
 
 function isPreview() {
     return $(document).find('.navbar').text().indexOf('Preview') !== -1;
@@ -778,8 +781,13 @@ function formatRecipientLists() {
     });
 }
 
-function reenableFieldsForSubmission() {
-    $(':disabled').prop('disabled', false);
+function getFormDataWithDisabledFields(form) {
+    tinymce.triggerSave(); // flush contents of rich text editors into the hidden input fields
+    // only enabled inputs will appear in the data, so we temporarily enable disabled inputs
+    const disabled = form.find(':input:disabled').removeAttr('disabled');
+    const formData = form.serialize();
+    disabled.attr('disabled', 'disabled');
+    return formData;
 }
 
 function validateNumScaleAnswer(qnIdx, responseIdx) {
@@ -1174,7 +1182,8 @@ $(document).ready(() => {
         });
     }
 
-    $('form[name="form_submit_response"]').submit((e) => {
+    const formObject = $('form[name="form_submit_response"]');
+    formObject.submit((e) => {
         formatRubricQuestions();
 
         const validationStatus = validateConstSumQuestions()
@@ -1185,16 +1194,68 @@ $(document).ready(() => {
         updateMcqOtherOptionField();
         updateMsqOtherOptionField();
 
+        e.preventDefault();
         if (!validationStatus) {
-            e.preventDefault();
             e.stopPropagation();
         } else {
-            reenableFieldsForSubmission(); // only enabled inputs will appear in the post data
-            tinymce.triggerSave(); // flush contents of rich text editors into the hidden input fields
-
-            // disable button to prevent user from clicking submission button again
+            const formData = getFormDataWithDisabledFields(formObject);
             const $submissionButton = $('#response_submit_button');
-            addLoadingIndicator($submissionButton, 'Submitting ');
+            $.ajax({
+                type: 'POST',
+                url: formObject.attr('action'),
+                data: formData,
+                beforeSend() {
+                    // disable button to prevent user from clicking submission button again
+                    addLoadingIndicator($submissionButton, 'Submitting ');
+                },
+                error() {
+                    removeLoadingIndicator($submissionButton, 'Submit Feedback');
+
+                    showModalAlert(SUBMISSION_FAILURE_HEADER, SUBMISSION_FAILURE_MESSAGE, null, StatusType.DANGER);
+                },
+                success(data) {
+                    removeLoadingIndicator($submissionButton, 'Submit Feedback');
+
+                    // parse HTML of result page
+                    const resultPage = $($.parseHTML(data));
+
+                    // update feedback response IDs based on real IDs extracted from result page
+                    const numQuestions = resultPage.find('input[name^="questiontype-"]').length;
+                    for (let qnNum = 1; qnNum <= numQuestions; qnNum += 1) {
+                        const numResponses = resultPage.find(`input[name="questionresponsetotal-${qnNum}"]`).val();
+                        for (let j = 0; j < numResponses.length; j += 1) {
+                            const updatedResponseId = resultPage.find(`input[name=responseid-${qnNum}-${j}]`).val();
+                            const $existingResponseIdField = $(`input[name=responseid-${qnNum}-${j}]`);
+                            const hasExistingResponseId = $existingResponseIdField.length;
+                            if (hasExistingResponseId) {
+                                if (updatedResponseId) {
+                                    $existingResponseIdField.val(updatedResponseId);
+                                } else {
+                                    $existingResponseIdField.remove();
+                                }
+                            } else if (updatedResponseId) {
+                                $('<input>').attr({
+                                    type: 'hidden',
+                                    name: `responseid-${qnNum}-${j}`,
+                                    value: updatedResponseId,
+                                }).appendTo(formObject);
+                            }
+                        }
+                    }
+
+                    // update current status messages to user based on messages extracted from result page
+                    const responseStatusMessages = resultPage.find('#statusMessagesToUser').html();
+                    const $statusMessageDivToUser = $('#statusMessagesToUser');
+                    $statusMessageDivToUser.html(responseStatusMessages);
+                    $statusMessageDivToUser.show();
+                    scrollToElement($statusMessageDivToUser[0], { offset: -window.innerHeight / 2 });
+
+                    // based on updated status messages, show modals if necessary
+                    showModalWarningIfSessionClosed();
+                    showModalWarningIfSessionClosingSoon();
+                    showModalSuccessIfResponsesSubmitted();
+                },
+            });
         }
     });
 
