@@ -6,6 +6,7 @@ branches:
   only:
     - master
     - release
+    - msqstats-testing
 
 notifications:
   email: false
