@@ -15,7 +15,7 @@ import teammates.common.datatransfer.attributes.FeedbackQuestionAttributes;
 import teammates.common.datatransfer.attributes.FeedbackResponseAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
-import teammates.common.datatransfer.questions.FeedbackMcqQuestionDetails.McqStatistics;
+import teammates.common.datatransfer.questions.FeedbackMcqQuestionDetails.ResponseStatistics;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.util.Assumption;
 import teammates.common.util.Const;
@@ -633,8 +633,8 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
         if ("student".equals(view) || unsortedResponses.isEmpty()) {
             return "";
         }
-        // Reuse McqStatistics class to generate MSQ Response summary stats
-        McqStatistics msqStats = new McqStatistics(this);
+        // Reuse ResponseStatistics class from FeedbackMcqQuestionDetails to generate MSQ Response summary stats
+        ResponseStatistics msqStats = new ResponseStatistics(this);
 
         // Sort responses based on recipient team and recipient name.
         List<FeedbackResponseAttributes> responses = msqStats.getResponseAttributesSorted(unsortedResponses, bundle);
@@ -706,10 +706,10 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
             return "";
         }
         StringBuilder csv = new StringBuilder();
-        McqStatistics msqStats = new McqStatistics(this);
+        ResponseStatistics msqStats = new ResponseStatistics(this);
 
-        // Reuse McqStatistics to generate response summary stats
-        csv.append(msqStats.getResponseSummaryStatsCsv(answerFrequency, bundle, numChoicesSelected));
+        // Reuse ResponseStatistics class from FeedbackMcqQuestionDetails to generate response summary stats
+        csv.append(msqStats.getResponseSummaryStatsCsv(answerFrequency, numChoicesSelected));
 
         // Create 'Per recipient Stats' for csv if weights are enabled.
         if (hasAssignedWeights) {
@@ -929,7 +929,7 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
         return numChoicesSelected;
     }
 
-    private static int getNumberOfNonEmptyResponsesOfQuestion(List<String> answerStrings, Map<String,
+    private int getNumberOfNonEmptyResponsesOfQuestion(List<String> answerStrings, Map<String,
             Integer> answerFrequency) {
         int numChoices = 0;
         for (String answerString : answerStrings) {
@@ -954,10 +954,10 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
     private static class MsqPerRecipientStatistics {
         List<String> msqChoices;
         boolean otherEnabled;
-        McqStatistics msqStats;
+        ResponseStatistics msqStats;
 
         MsqPerRecipientStatistics(FeedbackMsqQuestionDetails msqDetails,
-                McqStatistics msqStats) {
+                ResponseStatistics msqStats) {
             this.msqChoices = msqDetails.getMsqChoices();
             this.otherEnabled = msqDetails.getOtherEnabled();
             this.msqStats = msqStats;
@@ -973,14 +973,19 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
             String otherAnswer = "";
 
             if (isOtherOptionAnswer) {
-                responseCountPerOption.put("Other", responseCountPerOption.getOrDefault("Other", 0) + 1);
+                responseCountPerOption.put("Other", responseCountPerOption.get("Other") + 1);
 
                 // remove other answer temporarily to calculate stats for other options
-                otherAnswer = answerStrings.get(answerStrings.size() - 1);
+                otherAnswer = responseDetails.getOtherFieldContent();
                 answerStrings.remove(otherAnswer);
             }
 
-            getNumberOfNonEmptyResponsesOfQuestion(answerStrings, responseCountPerOption);
+            for (String answerString : answerStrings) {
+                if (answerString.isEmpty()) {
+                    continue;
+                }
+                responseCountPerOption.put(answerString, responseCountPerOption.get(answerString) + 1);
+            }
 
             // restore other answer if any
             if (isOtherOptionAnswer) {
@@ -1062,7 +1067,7 @@ public class FeedbackMsqQuestionDetails extends FeedbackQuestionDetails {
         }
 
         /**
-         * Returns the 'Per Recipient' stats body part for CSV files.<br>
+         * Returns the 'Per Recipient' stats body part for CSV files.
          * @param responses The response attribute list should be sorted first before passing as an argument.
          * @param bundle Feedback session results bundle
          */

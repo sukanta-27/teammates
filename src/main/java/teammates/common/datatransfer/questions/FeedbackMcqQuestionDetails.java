@@ -515,7 +515,7 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
 
         StringBuilder responseSummaryFragments = new StringBuilder();
 
-        McqStatistics mcqStats = new McqStatistics(this);
+        ResponseStatistics mcqStats = new ResponseStatistics(this);
         // Sort the list of responseAttributes based on recipient team and recipient name.
         List<FeedbackResponseAttributes> responses = mcqStats.getResponseAttributesSorted(unsortedResponses, bundle);
         Map<String, Integer> answerFrequency = mcqStats.collateAnswerFrequency(responses);
@@ -570,10 +570,10 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
             return "";
         }
         StringBuilder csv = new StringBuilder();
-        McqStatistics mcqStats = new McqStatistics(this);
+        ResponseStatistics mcqStats = new ResponseStatistics(this);
         Map<String, Integer> answerFrequency = mcqStats.collateAnswerFrequency(responses);
         // Add the Response Summary Statistics to the CSV String.
-        csv.append(mcqStats.getResponseSummaryStatsCsv(answerFrequency, bundle, responses.size()));
+        csv.append(mcqStats.getResponseSummaryStatsCsv(answerFrequency, responses.size()));
 
         // If weights are assigned, add the 'Per Recipient Statistics' to the CSV string.
         if (hasAssignedWeights) {
@@ -673,9 +673,9 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     }
 
     /**
-     * Class to calculate result statistics of responses for MCQ questions.
+     * Class to calculate result statistics of responses for MCQ and MSQ questions.
      */
-    public static class McqStatistics {
+    public static class ResponseStatistics {
         boolean hasAssignedWeights;
         List<String> mcqChoices;
         List<Double> mcqWeights;
@@ -683,7 +683,7 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
         boolean otherEnabled;
         int numOfMcqChoices;
 
-        public McqStatistics(FeedbackMcqQuestionDetails mcqDetails) {
+        public ResponseStatistics(FeedbackMcqQuestionDetails mcqDetails) {
             this.mcqChoices = mcqDetails.getMcqChoices();
             this.numOfMcqChoices = mcqChoices.size();
             this.mcqWeights = mcqDetails.getMcqWeights();
@@ -692,7 +692,7 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
             this.mcqOtherWeight = mcqDetails.getMcqOtherWeight();
         }
 
-        public McqStatistics(FeedbackMsqQuestionDetails msqDetails) {
+        public ResponseStatistics(FeedbackMsqQuestionDetails msqDetails) {
             this.mcqChoices = msqDetails.getMsqChoices();
             this.numOfMcqChoices = mcqChoices.size();
             this.mcqWeights = msqDetails.getMsqWeights();
@@ -883,8 +883,7 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
         /**
          * Returns a String containing the Response Summary statistics for CSV files.
          */
-        public String getResponseSummaryStatsCsv(Map<String, Integer> answerFrequency,
-                FeedbackSessionResultsBundle bundle, int totalResponseCount) {
+        public String getResponseSummaryStatsCsv(Map<String, Integer> answerFrequency, int totalResponseCount) {
 
             String header = "";
 
