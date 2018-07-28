@@ -6,6 +6,7 @@ branches:
   only:
     - master
     - release
+    - weighted-percentage-test
 
 notifications:
   email: false
