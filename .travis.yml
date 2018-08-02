@@ -6,6 +6,7 @@ branches:
   only:
     - master
     - release
+    - travis-test-rubric
 
 notifications:
   email: false
